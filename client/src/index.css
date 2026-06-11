@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-cream text-forest font-sans;
+  }
+}
+
+@layer components {
+  /* Recipe Card Polaroid Effect */
+  .recipe-card {
+    @apply bg-white p-3 pb-6 shadow-lg transition-all duration-300;
+    transform: rotate(-1deg);
+  }
+  
+  .recipe-card:hover {
+    @apply shadow-2xl scale-105;
+    transform: rotate(0deg);
+  }
+
+  .recipe-card:nth-child(even) {
+    transform: rotate(1deg);
+  }
+
+  .recipe-card:nth-child(even):hover {
+    transform: rotate(0deg);
+  }
+
+  /* Buttons */
+  .btn-primary {
+    @apply bg-terracotta text-white px-6 py-3 rounded-lg font-medium hover:bg-terracotta-dark transition-colors;
+  }
+
+  .btn-secondary {
+    @apply bg-forest text-white px-6 py-3 rounded-lg font-medium hover:bg-forest-light transition-colors;
+  }
+
+  .btn-outline {
+    @apply border-2 border-forest text-forest px-6 py-3 rounded-lg font-medium hover:bg-forest hover:text-white transition-colors;
+  }
+
+  /* Input Fields */
+  .input-field {
+    @apply w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-terracotta transition-colors;
+  }
+
+  /* Badge */
+  .badge {
+    @apply inline-block px-3 py-1 text-sm rounded-full font-medium;
+  }
+
+  .badge-success {
+    @apply bg-green-100 text-green-800;
+  }
+
+  .badge-warning {
+    @apply bg-yellow-100 text-yellow-800;
+  }
+
+  .badge-danger {
+    @apply bg-red-100 text-red-800;
+  }
+}
+
+/* Dark mode */
+.dark {
+  @apply bg-forest text-cream;
+}
+
+.dark .recipe-card {
+  @apply bg-forest-dark;
+}
+
+/* Loading spinner */
+.spinner {
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-left-color: #C4622D;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
