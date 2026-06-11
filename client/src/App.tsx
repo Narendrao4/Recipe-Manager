@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import Layout from './components/Layout';
+import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -18,11 +19,17 @@ function App() {
 
   return (
     <Routes>
-      <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
-      <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/" />} />
+      {/* Public landing page */}
+      <Route path="/" element={!isAuthenticated ? <Landing /> : <Navigate to="/dashboard" />} />
+      <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" />} />
+      <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/dashboard" />} />
+      
+      {/* Protected routes */}
+      <Route path="/dashboard" element={isAuthenticated ? <Layout /> : <Navigate to="/login" />}>
+        <Route index element={<Dashboard />} />
+      </Route>
       
       <Route path="/" element={isAuthenticated ? <Layout /> : <Navigate to="/login" />}>
-        <Route index element={<Dashboard />} />
         <Route path="recipes" element={<Recipes />} />
         <Route path="recipes/new" element={<CreateRecipe />} />
         <Route path="recipes/:id" element={<RecipeDetail />} />

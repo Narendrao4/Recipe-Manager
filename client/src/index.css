@@ -1,10 +1,24 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-forest: #1B3A2D;
+  --color-forest-light: #2D5A45;
+  --color-forest-dark: #0F1F1A;
+  --color-cream: #F5EDD6;
+  --color-cream-light: #FFFEF9;
+  --color-cream-dark: #E8DCC0;
+  --color-terracotta: #C4622D;
+  --color-terracotta-light: #D47842;
+  --color-terracotta-dark: #A54E1F;
+  
+  --font-family-display: 'Playfair Display', serif;
+}
 
 @layer base {
   body {
-    @apply bg-cream text-forest font-sans;
+    background-color: var(--color-cream);
+    color: var(--color-forest);
+    font-family: 'Inter', sans-serif;
   }
 }
 
@@ -64,13 +78,16 @@
   }
 }
 
-/* Dark mode */
-.dark {
-  @apply bg-forest text-cream;
-}
+@layer utilities {
+  /* Dark mode */
+  .dark {
+    background-color: var(--color-forest);
+    color: var(--color-cream);
+  }
 
-.dark .recipe-card {
-  @apply bg-forest-dark;
+  .dark .recipe-card {
+    background-color: var(--color-forest-dark);
+  }
 }
 
 /* Loading spinner */
