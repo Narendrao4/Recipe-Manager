@@ -13,6 +13,7 @@ import MealPlanner from './pages/MealPlanner';
 import Pantry from './pages/Pantry';
 import CookMode from './pages/CookMode';
 import Stats from './pages/Stats';
+import Favorites from './pages/Favorites';
 
 function App() {
   const { isAuthenticated } = useAuthStore();
@@ -38,6 +39,7 @@ function App() {
         <Route path="ingredient-matcher" element={<IngredientMatcher />} />
         <Route path="meal-planner" element={<MealPlanner />} />
         <Route path="pantry" element={<Pantry />} />
+        <Route path="favorites" element={<Favorites />} />
         <Route path="stats" element={<Stats />} />
       </Route>
     </Routes>

@@ -58,6 +58,17 @@ const Dashboard = () => {
         <h2 className="text-2xl font-display font-semibold mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Link
+            to="/favorites"
+            className="flex items-center space-x-3 p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-terracotta hover:bg-cream-light dark:hover:bg-forest-light transition-all"
+          >
+            <div className="text-3xl">❤️</div>
+            <div>
+              <div className="font-semibold">Favorite Recipes</div>
+              <div className="text-sm text-gray-600 dark:text-gray-300">Your saved go-to meals</div>
+            </div>
+          </Link>
+
+          <Link
             to="/ingredient-matcher"
             className="flex items-center space-x-3 p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-terracotta hover:bg-cream-light dark:hover:bg-forest-light transition-all"
           >

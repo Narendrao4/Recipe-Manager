@@ -32,7 +32,7 @@ const RecipeCard = ({ recipe }: any) => {
   );
 };
 
-const MealSlot = ({ date, mealType, mealPlanId, recipes, onDrop }: any) => {
+const MealSlot = ({ date, mealType, recipes, onDrop }: any) => {
   const [{ isOver }, drop] = useDrop(() => ({
     accept: 'recipe',
     drop: (item: any) => onDrop(item.recipe, date, mealType),

@@ -1,24 +1,19 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 import RecipeCard from '../components/RecipeCard';
 
-const Recipes = () => {
+const Favorites = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [cuisineFilter, setCuisineFilter] = useState('');
   const [difficultyFilter, setDifficultyFilter] = useState('');
   const queryClient = useQueryClient();
 
   const { data: recipes, isLoading } = useQuery({
-    queryKey: ['recipes', searchTerm, cuisineFilter, difficultyFilter],
+    queryKey: ['recipes'],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (searchTerm) params.append('search', searchTerm);
-      if (cuisineFilter) params.append('cuisine', cuisineFilter);
-      if (difficultyFilter) params.append('difficulty', difficultyFilter);
-      
-      const { data } = await api.get(`/recipes?${params}`);
+      const { data } = await api.get('/recipes');
       return data;
     },
   });
@@ -33,32 +28,56 @@ const Recipes = () => {
     },
   });
 
+  const favoriteRecipes = useMemo(() => {
+    return (recipes || [])
+      .filter((recipe: any) => recipe.isFavorite)
+      .filter((recipe: any) => {
+        const matchesSearch =
+          !searchTerm ||
+          recipe.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          recipe.description?.toLowerCase().includes(searchTerm.toLowerCase());
+
+        const matchesCuisine = !cuisineFilter || recipe.cuisine === cuisineFilter;
+        const matchesDifficulty = !difficultyFilter || recipe.difficulty === difficultyFilter;
+
+        return matchesSearch && matchesCuisine && matchesDifficulty;
+      });
+  }, [recipes, searchTerm, cuisineFilter, difficultyFilter]);
+
+  const cuisines: string[] = [
+    ...new Set(
+      ((recipes || [])
+        .filter((r: any) => r.isFavorite)
+        .map((r: any) => r.cuisine)
+        .filter(Boolean) as string[])
+    ),
+  ];
+
   const handleFavoriteToggle = (recipeId: string) => {
     favoriteMutation.mutate(recipeId);
   };
 
-  // Get unique cuisines for filter
-  const cuisines: string[] = [
-    ...new Set(((recipes || []).map((r: any) => r.cuisine).filter(Boolean) as string[])),
-  ];
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-4xl font-display font-bold text-forest dark:text-cream">My Recipes</h1>
-        <Link to="/recipes/new" className="btn-primary">
-          + New Recipe
+        <div>
+          <h1 className="text-4xl font-display font-bold text-forest dark:text-cream">Favorite Recipes</h1>
+          <p className="text-gray-600 dark:text-gray-300 mt-1">
+            Your hand-picked collection for quick access.
+          </p>
+        </div>
+        <Link to="/recipes" className="btn-secondary">
+          Browse All Recipes
         </Link>
       </div>
 
-      {/* Filters */}
       <div className="bg-white dark:bg-forest-dark rounded-xl shadow-lg p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-2">Search</label>
+            <label className="block text-sm font-medium mb-2">Search Favorites</label>
             <input
               type="text"
-              placeholder="Search recipes..."
+              placeholder="Search favorites..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="input-field"
@@ -97,28 +116,32 @@ const Recipes = () => {
         </div>
       </div>
 
-      {/* Recipe Grid */}
       {isLoading ? (
         <div className="flex justify-center items-center py-20">
           <div className="spinner"></div>
         </div>
-      ) : recipes && recipes.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {recipes.map((recipe: any) => (
-            <RecipeCard key={recipe.id} recipe={recipe} onFavoriteToggle={handleFavoriteToggle} />
-          ))}
-        </div>
+      ) : favoriteRecipes.length > 0 ? (
+        <>
+          <div className="text-sm text-gray-600 dark:text-gray-300">
+            Showing {favoriteRecipes.length} favorite {favoriteRecipes.length === 1 ? 'recipe' : 'recipes'}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {favoriteRecipes.map((recipe: any) => (
+              <RecipeCard key={recipe.id} recipe={recipe} onFavoriteToggle={handleFavoriteToggle} />
+            ))}
+          </div>
+        </>
       ) : (
-        <div className="text-center py-20">
-          <div className="text-6xl mb-4">📖</div>
-          <h3 className="text-2xl font-display font-semibold mb-2">No recipes found</h3>
+        <div className="text-center py-20 bg-white dark:bg-forest-dark rounded-xl shadow-lg">
+          <div className="text-6xl mb-4">❤️</div>
+          <h3 className="text-2xl font-display font-semibold mb-2">No favorites yet</h3>
           <p className="text-gray-600 dark:text-gray-300 mb-6">
             {searchTerm || cuisineFilter || difficultyFilter
-              ? 'Try adjusting your filters'
-              : 'Start by creating your first recipe'}
+              ? 'No favorites match your current filters.'
+              : 'Tap the heart icon on any recipe to add it here.'}
           </p>
-          <Link to="/recipes/new" className="btn-primary inline-block">
-            Create Recipe
+          <Link to="/recipes" className="btn-primary inline-block">
+            Explore Recipes
           </Link>
         </div>
       )}
@@ -126,4 +149,4 @@ const Recipes = () => {
   );
 };
 
-export default Recipes;
+export default Favorites;

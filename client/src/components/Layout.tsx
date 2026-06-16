@@ -10,6 +10,7 @@ const Layout = () => {
   const navLinks = [
     { path: '/', label: 'Dashboard', icon: '🏠' },
     { path: '/recipes', label: 'Recipes', icon: '📖' },
+    { path: '/favorites', label: 'Favorites', icon: '❤️' },
     { path: '/ingredient-matcher', label: 'Ingredient Matcher', icon: '🎯' },
     { path: '/meal-planner', label: 'Meal Planner', icon: '📅' },
     { path: '/pantry', label: 'Pantry', icon: '🏪' },
