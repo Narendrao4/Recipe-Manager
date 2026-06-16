@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 import RecipeCard from '../components/RecipeCard';
+import RecipeApiImporter from '../components/RecipeApiImporter';
 
 const Recipes = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -37,6 +38,13 @@ const Recipes = () => {
     favoriteMutation.mutate(recipeId);
   };
 
+  const handleImportedRecipe = () => {
+    setSearchTerm('');
+    setCuisineFilter('');
+    setDifficultyFilter('');
+    queryClient.invalidateQueries({ queryKey: ['recipes'] });
+  };
+
   // Get unique cuisines for filter
   const cuisines: string[] = [
     ...new Set(((recipes || []).map((r: any) => r.cuisine).filter(Boolean) as string[])),
@@ -44,12 +52,24 @@ const Recipes = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-4xl font-display font-bold text-forest dark:text-cream">My Recipes</h1>
-        <Link to="/recipes/new" className="btn-primary">
-          + New Recipe
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-4xl font-display font-bold text-forest dark:text-cream">My Recipes</h1>
+          <p className="mt-2 text-gray-600 dark:text-gray-300">
+            Your saved recipes plus new imports from the free recipe API.
+          </p>
+        </div>
+        <Link to="/recipes/new" className="btn-primary text-center">
+          New Recipe
         </Link>
       </div>
+
+      <RecipeApiImporter
+        title="Import recipes into My Recipes"
+        description="Search TheMealDB, import a result, and it will appear in this collection."
+        onImported={handleImportedRecipe}
+        importButtonLabel="Import to My Recipes"
+      />
 
       {/* Filters */}
       <div className="bg-white dark:bg-forest-dark rounded-xl shadow-lg p-6">

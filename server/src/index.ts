@@ -52,8 +52,7 @@ async function ensureMongoUrl(): Promise<void> {
   }
 
   mongoMemoryReplSet = await MongoMemoryReplSet.create({
-    replSet: { count: 1, storageEngine: 'wiredTiger' },
-    instanceOpts: [{ dbName: 'recipedb' }],
+    replSet: { count: 1, storageEngine: 'wiredTiger', dbName: 'recipedb' },
   });
 
   const memoryUrl = mongoMemoryReplSet.getUri('recipedb');

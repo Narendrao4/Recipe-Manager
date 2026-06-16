@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
+import RecipeApiImporter, { ExternalRecipeDraft } from '../components/RecipeApiImporter';
+
+const createBlankIngredient = () => ({ name: '', quantity: '', unit: '', substitution: '' });
+const createBlankStep = () => ({ instruction: '', timerMinutes: '' });
 
 const CreateRecipe = () => {
   const { id } = useParams();
@@ -17,8 +21,9 @@ const CreateRecipe = () => {
   const [cookTime, setCookTime] = useState('');
   const [servings, setServings] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
-  const [ingredients, setIngredients] = useState([{ name: '', quantity: '', unit: '', substitution: '' }]);
-  const [steps, setSteps] = useState([{ instruction: '', timerMinutes: '' }]);
+  const [externalPhotoUrl, setExternalPhotoUrl] = useState('');
+  const [ingredients, setIngredients] = useState([createBlankIngredient()]);
+  const [steps, setSteps] = useState([createBlankStep()]);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
 
@@ -41,8 +46,9 @@ const CreateRecipe = () => {
       setPrepTime(recipe.prepTime.toString());
       setCookTime(recipe.cookTime.toString());
       setServings(recipe.servings.toString());
-      setIngredients(recipe.ingredients.length > 0 ? recipe.ingredients : [{ name: '', quantity: '', unit: '', substitution: '' }]);
-      setSteps(recipe.steps.length > 0 ? recipe.steps.map((s: any) => ({ instruction: s.instruction, timerMinutes: s.timerMinutes || '' })) : [{ instruction: '', timerMinutes: '' }]);
+      setExternalPhotoUrl(recipe.photoUrl?.startsWith('http') ? recipe.photoUrl : '');
+      setIngredients(recipe.ingredients.length > 0 ? recipe.ingredients : [createBlankIngredient()]);
+      setSteps(recipe.steps.length > 0 ? recipe.steps.map((s: any) => ({ instruction: s.instruction, timerMinutes: s.timerMinutes || '' })) : [createBlankStep()]);
       setTags(recipe.tags.map((t: any) => t.name));
     }
   }, [recipe]);
@@ -80,13 +86,52 @@ const CreateRecipe = () => {
     
     if (photo) {
       formData.append('photo', photo);
+    } else if (externalPhotoUrl) {
+      formData.append('photoUrl', externalPhotoUrl);
     }
 
     saveMutation.mutate(formData);
   };
 
+  const applyExternalRecipe = (externalRecipe: ExternalRecipeDraft) => {
+    const importedIngredients = externalRecipe.ingredients
+      .map((ingredient) => ({
+        name: ingredient.name,
+        quantity: ingredient.quantity.toString(),
+        unit: ingredient.unit,
+        substitution: ingredient.substitution || '',
+      }))
+      .filter((ingredient) => ingredient.name);
+
+    const importedSteps = externalRecipe.steps
+      .map((step) => ({
+        instruction: step.instruction,
+        timerMinutes: step.timerMinutes ? step.timerMinutes.toString() : '',
+      }))
+      .filter((step) => step.instruction);
+
+    setTitle(externalRecipe.title);
+    setDescription(externalRecipe.description || '');
+    setCuisine(externalRecipe.cuisine || '');
+    setDifficulty(externalRecipe.difficulty);
+    setPrepTime(externalRecipe.prepTime.toString());
+    setCookTime(externalRecipe.cookTime.toString());
+    setServings(externalRecipe.servings.toString());
+    setPhoto(null);
+    setExternalPhotoUrl(externalRecipe.photoUrl || '');
+    setIngredients(importedIngredients.length > 0 ? importedIngredients : [createBlankIngredient()]);
+    setSteps(importedSteps.length > 0 ? importedSteps : [createBlankStep()]);
+    setTags(externalRecipe.tags || []);
+    setTagInput('');
+  };
+
+  const handleImportedRecipe = () => {
+    queryClient.invalidateQueries({ queryKey: ['recipes'] });
+    navigate('/recipes');
+  };
+
   const addIngredient = () => {
-    setIngredients([...ingredients, { name: '', quantity: '', unit: '', substitution: '' }]);
+    setIngredients([...ingredients, createBlankIngredient()]);
   };
 
   const removeIngredient = (index: number) => {
@@ -100,7 +145,7 @@ const CreateRecipe = () => {
   };
 
   const addStep = () => {
-    setSteps([...steps, { instruction: '', timerMinutes: '' }]);
+    setSteps([...steps, createBlankStep()]);
   };
 
   const removeStep = (index: number) => {
@@ -138,6 +183,20 @@ const CreateRecipe = () => {
       <h1 className="text-4xl font-display font-bold text-forest dark:text-cream mb-8">
         {isEditing ? 'Edit Recipe' : 'Create New Recipe'}
       </h1>
+
+      {!isEditing && (
+        <RecipeApiImporter
+          className="mb-8"
+          title="Search and import recipes"
+          description="Import directly to My Recipes, or load a recipe into this form to edit before saving."
+          onUseRecipe={applyExternalRecipe}
+          onImported={handleImportedRecipe}
+          showImportAction
+          showReviewAction
+          importButtonLabel="Import now"
+          reviewButtonLabel="Edit before saving"
+        />
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Basic Info */}
@@ -235,9 +294,34 @@ const CreateRecipe = () => {
             <input
               type="file"
               accept="image/*"
-              onChange={(e) => setPhoto(e.target.files?.[0] || null)}
+              onChange={(e) => {
+                const selectedPhoto = e.target.files?.[0] || null;
+                setPhoto(selectedPhoto);
+                if (selectedPhoto) {
+                  setExternalPhotoUrl('');
+                }
+              }}
               className="input-field"
             />
+            {externalPhotoUrl && !photo && (
+              <div className="mt-3 flex items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                <img
+                  src={externalPhotoUrl}
+                  alt={title || 'Imported recipe'}
+                  className="h-16 w-16 rounded object-cover"
+                />
+                <span className="flex-1 text-sm text-gray-600 dark:text-gray-300">
+                  Imported image selected
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setExternalPhotoUrl('')}
+                  className="text-sm font-medium text-red-600 hover:text-red-700"
+                >
+                  Remove
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
+import RecipeApiImporter from '../components/RecipeApiImporter';
 
 const Dashboard = () => {
+  const queryClient = useQueryClient();
+
   const { data: stats } = useQuery({
     queryKey: ['stats'],
     queryFn: async () => {
@@ -21,16 +24,33 @@ const Dashboard = () => {
 
   const recentRecipes = recipes?.slice(0, 3) || [];
 
+  const handleImportedRecipe = () => {
+    queryClient.invalidateQueries({ queryKey: ['recipes'] });
+    queryClient.invalidateQueries({ queryKey: ['stats'] });
+  };
+
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
-        <h1 className="text-4xl font-display font-bold text-forest dark:text-cream">
-          Welcome to Recipe Manager
-        </h1>
-        <Link to="/recipes/new" className="btn-primary">
-          + New Recipe
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-4xl font-display font-bold text-forest dark:text-cream">
+            Recipe Dashboard
+          </h1>
+          <p className="mt-2 text-gray-600 dark:text-gray-300">
+            Search the free recipe API, import meals, and keep your collection moving.
+          </p>
+        </div>
+        <Link to="/recipes/new" className="btn-primary text-center">
+          New Recipe
         </Link>
       </div>
+
+      <RecipeApiImporter
+        title="Get recipes from the free API"
+        description="Search TheMealDB and import a recipe directly into My Recipes."
+        onImported={handleImportedRecipe}
+        importButtonLabel="Import to My Recipes"
+      />
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

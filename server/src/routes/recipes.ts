@@ -38,6 +38,351 @@ const upload = multer({
   },
 });
 
+const MEALDB_API_KEY = process.env.THEMEALDB_API_KEY || '1';
+const MEALDB_BASE_URL = `https://www.themealdb.com/api/json/v1/${MEALDB_API_KEY}`;
+
+type TheMealDbMeal = {
+  idMeal: string;
+  strMeal: string;
+  strCategory?: string | null;
+  strArea?: string | null;
+  strInstructions?: string | null;
+  strMealThumb?: string | null;
+  strTags?: string | null;
+  strYoutube?: string | null;
+  strSource?: string | null;
+  [key: string]: string | null | undefined;
+};
+
+type TheMealDbResponse = {
+  meals: TheMealDbMeal[] | null;
+};
+
+type ImportedIngredient = {
+  name: string;
+  quantity: number;
+  unit: string;
+  substitution: string;
+};
+
+type ImportedStep = {
+  instruction: string;
+  timerMinutes: string;
+};
+
+type RecipeDraft = {
+  externalId: string;
+  source: string;
+  title: string;
+  description: string;
+  cuisine: string;
+  difficulty: 'Easy' | 'Medium' | 'Hard';
+  prepTime: number;
+  cookTime: number;
+  servings: number;
+  photoUrl?: string;
+  category: string;
+  ingredients: ImportedIngredient[];
+  steps: ImportedStep[];
+  tags: string[];
+};
+
+function cleanText(value?: string | null): string {
+  return (value || '').replace(/\s+/g, ' ').trim();
+}
+
+function normalizeExternalPhotoUrl(value: unknown): string | undefined {
+  if (typeof value !== 'string' || !value.trim()) {
+    return undefined;
+  }
+
+  try {
+    const url = new URL(value.trim());
+    return ['http:', 'https:'].includes(url.protocol) ? url.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function parseQuantityToken(token: string): number | null {
+  const parts = token.trim().split(/\s+/);
+  let total = 0;
+
+  for (const part of parts) {
+    if (part.includes('/')) {
+      const [numerator, denominator] = part.split('/').map(Number);
+      if (!numerator || !denominator) {
+        return null;
+      }
+      total += numerator / denominator;
+    } else {
+      const parsed = Number(part);
+      if (!Number.isFinite(parsed)) {
+        return null;
+      }
+      total += parsed;
+    }
+  }
+
+  return total || null;
+}
+
+function parseMeasure(rawMeasure?: string | null): { quantity: number; unit: string } {
+  const cleaned = cleanText(rawMeasure)
+    .replace(/\u00bc/g, ' 1/4')
+    .replace(/\u00bd/g, ' 1/2')
+    .replace(/\u00be/g, ' 3/4')
+    .replace(/\u2153/g, ' 1/3')
+    .replace(/\u2154/g, ' 2/3')
+    .replace(/\u215b/g, ' 1/8')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleaned) {
+    return { quantity: 1, unit: 'item' };
+  }
+
+  const quantityMatch = cleaned.match(/^(\d+(?:\.\d+)?(?:\s+\d+\/\d+)?|\d+\/\d+)/);
+
+  if (!quantityMatch) {
+    return { quantity: 1, unit: cleaned };
+  }
+
+  const quantity = parseQuantityToken(quantityMatch[1]);
+  const unit = cleaned.slice(quantityMatch[1].length).trim();
+
+  return {
+    quantity: quantity ?? 1,
+    unit: unit || 'item',
+  };
+}
+
+function extractMealIngredients(meal: TheMealDbMeal): ImportedIngredient[] {
+  const ingredients: ImportedIngredient[] = [];
+
+  for (let index = 1; index <= 20; index += 1) {
+    const name = cleanText(meal[`strIngredient${index}`]);
+    if (!name) {
+      continue;
+    }
+
+    const measure = parseMeasure(meal[`strMeasure${index}`]);
+    ingredients.push({
+      name,
+      quantity: measure.quantity,
+      unit: measure.unit,
+      substitution: '',
+    });
+  }
+
+  return ingredients;
+}
+
+function splitMealInstructions(instructions?: string | null): ImportedStep[] {
+  const cleaned = (instructions || '').replace(/\r/g, '\n').trim();
+
+  if (!cleaned) {
+    return [{ instruction: 'Prepare and cook as desired.', timerMinutes: '' }];
+  }
+
+  const lineSteps = cleaned
+    .split(/\n+/)
+    .map((step) => cleanText(step).replace(/^\d+[\).]\s*/, ''))
+    .filter(Boolean);
+
+  if (lineSteps.length > 1) {
+    return lineSteps.map((instruction) => ({ instruction, timerMinutes: '' }));
+  }
+
+  const numberedSteps = cleaned
+    .split(/(?=\s\d+[\).]\s)/)
+    .map((step) => cleanText(step).replace(/^\d+[\).]\s*/, ''))
+    .filter(Boolean);
+
+  if (numberedSteps.length > 1) {
+    return numberedSteps.map((instruction) => ({ instruction, timerMinutes: '' }));
+  }
+
+  return [{ instruction: cleanText(cleaned), timerMinutes: '' }];
+}
+
+function uniqueTagNames(values: string[]): string[] {
+  return Array.from(new Set(values.map(cleanText).filter(Boolean)));
+}
+
+function mapMealToRecipeDraft(meal: TheMealDbMeal): RecipeDraft {
+  const title = cleanText(meal.strMeal);
+  const category = cleanText(meal.strCategory);
+  const area = cleanText(meal.strArea);
+  const source = cleanText(meal.strSource || meal.strYoutube);
+  const ingredients = extractMealIngredients(meal);
+  const steps = splitMealInstructions(meal.strInstructions);
+  const mealTags = cleanText(meal.strTags)
+    .split(',')
+    .map((tag) => tag.trim());
+
+  const descriptionParts = [
+    category && area ? `${area} ${category} recipe imported from TheMealDB.` : '',
+    source ? `Source: ${source}` : '',
+  ].filter(Boolean);
+
+  return {
+    externalId: meal.idMeal,
+    source: 'TheMealDB',
+    title,
+    description: descriptionParts.join(' '),
+    cuisine: area && area.toLowerCase() !== 'unknown' ? area : '',
+    difficulty: ingredients.length <= 6 && steps.length <= 4 ? 'Easy' : 'Medium',
+    prepTime: 10,
+    cookTime: 30,
+    servings: 4,
+    photoUrl: normalizeExternalPhotoUrl(meal.strMealThumb),
+    category,
+    ingredients,
+    steps,
+    tags: uniqueTagNames([...mealTags, category, area, 'TheMealDB']),
+  };
+}
+
+async function fetchMealDb(pathname: string, params: Record<string, string>): Promise<TheMealDbResponse> {
+  const url = new URL(`${MEALDB_BASE_URL}/${pathname}`);
+
+  for (const [key, value] of Object.entries(params)) {
+    url.searchParams.set(key, value);
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+
+    if (!response.ok) {
+      throw new Error(`TheMealDB returned ${response.status}`);
+    }
+
+    return (await response.json()) as TheMealDbResponse;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function addTagsToRecipe(recipeId: string, tagNames: string[]): Promise<void> {
+  for (const tagName of uniqueTagNames(tagNames)) {
+    let tag = await prisma.tag.findUnique({ where: { name: tagName } });
+
+    if (!tag) {
+      tag = await prisma.tag.create({ data: { name: tagName } });
+    }
+
+    await prisma.recipeTag.create({
+      data: {
+        recipeId,
+        tagId: tag.id,
+      },
+    });
+  }
+}
+
+async function createRecipeFromDraft(userId: string, draft: RecipeDraft) {
+  const recipe = await prisma.recipe.create({
+    data: {
+      userId,
+      title: draft.title,
+      description: draft.description,
+      cuisine: draft.cuisine,
+      difficulty: draft.difficulty,
+      prepTime: draft.prepTime,
+      cookTime: draft.cookTime,
+      servings: draft.servings,
+      photoUrl: draft.photoUrl,
+      ingredients: {
+        create: draft.ingredients.map((ingredient, index) => ({
+          name: ingredient.name,
+          quantity: Number.isFinite(ingredient.quantity) ? ingredient.quantity : 1,
+          unit: ingredient.unit || 'item',
+          substitution: ingredient.substitution,
+          order: index,
+        })),
+      },
+      steps: {
+        create: draft.steps.map((step, index) => ({
+          stepNumber: index + 1,
+          instruction: step.instruction,
+          timerMinutes: step.timerMinutes ? parseInt(step.timerMinutes) : null,
+        })),
+      },
+    },
+  });
+
+  await addTagsToRecipe(recipe.id, draft.tags);
+
+  const createdRecipe = await prisma.recipe.findFirst({
+    where: { id: recipe.id, userId },
+    include: {
+      ingredients: { orderBy: { order: 'asc' } },
+      steps: { orderBy: { stepNumber: 'asc' } },
+      tags: { include: { tag: true } },
+      favorites: { where: { userId } },
+    },
+  });
+
+  if (!createdRecipe) {
+    throw new Error('Imported recipe was not found after creation');
+  }
+
+  return {
+    ...createdRecipe,
+    tags: createdRecipe.tags.map((rt) => rt.tag),
+    isFavorite: createdRecipe.favorites.length > 0,
+    favorites: undefined,
+  };
+}
+
+// Search TheMealDB and return drafts compatible with the local recipe form.
+router.get('/external/themealdb/search', authenticate, async (req: AuthRequest, res) => {
+  try {
+    const query = cleanText(req.query.q as string);
+
+    if (!query) {
+      return res.status(400).json({ error: 'Search query required' });
+    }
+
+    const data = await fetchMealDb('search.php', { s: query });
+    const meals = (data.meals || []).map(mapMealToRecipeDraft);
+
+    res.json(meals);
+  } catch (error) {
+    console.error('TheMealDB search error:', error);
+    res.status(502).json({ error: 'Failed to search TheMealDB recipes' });
+  }
+});
+
+// Import a TheMealDB recipe directly into the user's local recipe collection.
+router.post('/external/themealdb/import', authenticate, async (req: AuthRequest, res) => {
+  try {
+    const externalId = cleanText(req.body.externalId || req.body.idMeal);
+
+    if (!externalId || !/^\d+$/.test(externalId)) {
+      return res.status(400).json({ error: 'Valid TheMealDB recipe id required' });
+    }
+
+    const data = await fetchMealDb('lookup.php', { i: externalId });
+    const meal = data.meals?.[0];
+
+    if (!meal) {
+      return res.status(404).json({ error: 'TheMealDB recipe not found' });
+    }
+
+    const recipe = await createRecipeFromDraft(req.userId!, mapMealToRecipeDraft(meal));
+
+    res.status(201).json(recipe);
+  } catch (error) {
+    console.error('TheMealDB import error:', error);
+    res.status(502).json({ error: 'Failed to import TheMealDB recipe' });
+  }
+});
+
 // Get all recipes for user
 router.get('/', authenticate, async (req: AuthRequest, res) => {
   try {
@@ -122,9 +467,9 @@ router.get('/:id', authenticate, async (req: AuthRequest, res) => {
 // Create recipe
 router.post('/', authenticate, upload.single('photo'), async (req: AuthRequest, res) => {
   try {
-    const { title, description, cuisine, difficulty, prepTime, cookTime, servings, ingredients, steps, tags } = req.body;
+    const { title, description, cuisine, difficulty, prepTime, cookTime, servings, ingredients, steps, tags, photoUrl: externalPhotoUrl } = req.body;
 
-    const photoUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
+    const photoUrl = req.file ? `/uploads/${req.file.filename}` : normalizeExternalPhotoUrl(externalPhotoUrl);
 
     const recipe = await prisma.recipe.create({
       data: {
@@ -187,7 +532,7 @@ router.post('/', authenticate, upload.single('photo'), async (req: AuthRequest, 
 // Update recipe
 router.put('/:id', authenticate, upload.single('photo'), async (req: AuthRequest, res) => {
   try {
-    const { title, description, cuisine, difficulty, prepTime, cookTime, servings, ingredients, steps, tags } = req.body;
+    const { title, description, cuisine, difficulty, prepTime, cookTime, servings, ingredients, steps, tags, photoUrl: externalPhotoUrl } = req.body;
 
     // Verify ownership
     const existingRecipe = await prisma.recipe.findFirst({
@@ -198,7 +543,7 @@ router.put('/:id', authenticate, upload.single('photo'), async (req: AuthRequest
       return res.status(404).json({ error: 'Recipe not found' });
     }
 
-    const photoUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
+    const photoUrl = req.file ? `/uploads/${req.file.filename}` : normalizeExternalPhotoUrl(externalPhotoUrl);
 
     // Delete old ingredients and steps
     await prisma.ingredient.deleteMany({ where: { recipeId: req.params.id } });
