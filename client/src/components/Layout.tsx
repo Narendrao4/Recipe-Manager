@@ -1,6 +1,9 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
+import { BarChart3, BookOpen, CalendarDays, Heart, Home, LogOut, Moon, Package, Sun, Target } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
+import Button from './ui/button';
+import { cn } from '../lib/utils';
 
 const Layout = () => {
   const { user, logout } = useAuthStore();
@@ -8,76 +11,80 @@ const Layout = () => {
   const location = useLocation();
 
   const navLinks = [
-    { path: '/', label: 'Dashboard', icon: '🏠' },
-    { path: '/recipes', label: 'Recipes', icon: '📖' },
-    { path: '/favorites', label: 'Favorites', icon: '❤️' },
-    { path: '/ingredient-matcher', label: 'Ingredient Matcher', icon: '🎯' },
-    { path: '/meal-planner', label: 'Meal Planner', icon: '📅' },
-    { path: '/pantry', label: 'Pantry', icon: '🏪' },
-    { path: '/stats', label: 'Stats', icon: '📊' },
+    { path: '/', label: 'Dashboard', icon: Home },
+    { path: '/recipes', label: 'Recipes', icon: BookOpen },
+    { path: '/favorites', label: 'Favorites', icon: Heart },
+    { path: '/ingredient-matcher', label: 'Matcher', icon: Target },
+    { path: '/meal-planner', label: 'Planner', icon: CalendarDays },
+    { path: '/pantry', label: 'Pantry', icon: Package },
+    { path: '/stats', label: 'Stats', icon: BarChart3 },
   ];
 
   return (
-    <div className="min-h-screen">
-      {/* Navigation */}
-      <nav className="bg-forest text-cream shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-8">
-              <Link to="/" className="text-2xl font-display font-bold">
-                🍳 Recipe Manager
+    <div className="min-h-screen bg-cream text-forest dark:bg-forest dark:text-cream">
+      <nav className="sticky top-0 z-40 border-b border-forest/10 bg-cream-light/90 shadow-sm backdrop-blur-xl dark:border-cream/10 dark:bg-forest-dark/90">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex min-h-16 flex-col gap-3 py-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center justify-between gap-4">
+              <Link to="/" className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-terracotta text-sm font-bold text-white shadow-lg">
+                  RM
+                </div>
+                <div>
+                  <div className="font-display text-2xl font-bold leading-none">Recipe Manager</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-300">Cookbook and API imports</div>
+                </div>
               </Link>
-              <div className="hidden md:flex space-x-4">
-                {navLinks.map((link) => (
-                  <Link
-                    key={link.path}
-                    to={link.path}
-                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                      location.pathname === link.path
-                        ? 'bg-terracotta text-white'
-                        : 'hover:bg-forest-light'
-                    }`}
-                  >
-                    <span className="mr-2">{link.icon}</span>
-                    {link.label}
-                  </Link>
-                ))}
+
+              <div className="flex items-center gap-2 lg:hidden">
+                <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
+                  {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                </Button>
               </div>
             </div>
 
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={toggle}
-                className="p-2 rounded-md hover:bg-forest-light transition-colors"
-                aria-label="Toggle theme"
-              >
-                {isDark ? '☀️' : '🌙'}
-              </button>
-              <div className="text-sm">
-                <span className="font-medium">{user?.name}</span>
+            <div className="flex gap-2 overflow-x-auto pb-1 lg:pb-0">
+              {navLinks.map((link) => {
+                const Icon = link.icon;
+                const isActive = location.pathname === link.path;
+
+                return (
+                  <Link
+                    key={link.path}
+                    to={link.path}
+                    className={cn(
+                      'inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all',
+                      isActive
+                        ? 'bg-forest text-cream shadow-sm dark:bg-cream dark:text-forest'
+                        : 'text-forest/75 hover:bg-forest/5 hover:text-forest dark:text-cream/75 dark:hover:bg-cream/10 dark:hover:text-cream'
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {link.label}
+                  </Link>
+                );
+              })}
+            </div>
+
+            <div className="hidden items-center gap-3 lg:flex">
+              <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
+                {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              </Button>
+              <div className="rounded-lg border border-forest/10 bg-white/60 px-3 py-2 text-sm dark:border-cream/10 dark:bg-cream/5">
+                <div className="font-semibold">{user?.name}</div>
               </div>
-              <button
-                onClick={logout}
-                className="px-4 py-2 bg-terracotta rounded-md hover:bg-terracotta-dark transition-colors"
-              >
+              <Button variant="outline" size="sm" onClick={logout}>
+                <LogOut className="h-4 w-4" />
                 Logout
-              </button>
+              </Button>
             </div>
           </div>
         </div>
       </nav>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <Outlet />
       </main>
-
-      {/* Footer */}
-      <footer className="bg-forest text-cream mt-16 py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p className="text-sm">© 2026 Recipe Manager. Made with ❤️ and Claude AI.</p>
-        </div>
-      </footer>
     </div>
   );
 };

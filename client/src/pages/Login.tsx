@@ -1,8 +1,12 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import api from '../lib/api';
 import { useAuthStore } from '../store/authStore';
+import Button from '../components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import Input from '../components/ui/input';
+import { useToast } from '../components/ui/toast';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -10,6 +14,7 @@ const Login = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const setAuth = useAuthStore((state) => state.setAuth);
+  const { toast } = useToast();
 
   const loginMutation = useMutation({
     mutationFn: async () => {
@@ -18,7 +23,12 @@ const Login = () => {
     },
     onSuccess: (data) => {
       setAuth(data.user, data.token);
-      navigate('/');
+      toast({
+        title: `Welcome back, ${data.user.name}`,
+        description: 'Your recipe workspace is ready.',
+        tone: 'success',
+      });
+      navigate('/dashboard');
     },
     onError: (error: any) => {
       setError(error.response?.data?.error || 'Login failed');
@@ -32,66 +42,70 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-forest to-forest-light px-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-display font-bold text-forest mb-2">🍳 Recipe Manager</h1>
-          <p className="text-gray-600">Sign in to your account</p>
-        </div>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-forest px-4 py-10">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(196,98,45,0.34),transparent_30%),radial-gradient(circle_at_80%_0%,rgba(245,237,214,0.24),transparent_28%),linear-gradient(135deg,#0f1f1a,#1b3a2d_55%,#2d5a45)]" />
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cream/60 to-transparent" />
+
+      <Card className="relative w-full max-w-md border-cream/20 bg-white/95 shadow-2xl backdrop-blur">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-terracotta text-lg font-bold text-white shadow-lg">
+            RM
+          </div>
+          <CardTitle className="text-4xl text-forest">Recipe Manager</CardTitle>
+          <CardDescription>Sign in to search, import, and cook from your collection.</CardDescription>
+        </CardHeader>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+          <div className="mx-6 mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input-field"
-              required
-            />
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label htmlFor="email" className="mb-2 block text-sm font-medium text-gray-700">
+                Email
+              </label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="mb-2 block text-sm font-medium text-gray-700">
+                Password
+              </label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Your password"
+                required
+              />
+            </div>
+
+            <Button type="submit" disabled={loginMutation.isPending} className="w-full">
+              {loginMutation.isPending ? 'Signing in...' : 'Sign In'}
+            </Button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-600">
+              Do not have an account?{' '}
+              <Link to="/register" className="font-medium text-terracotta hover:text-terracotta-dark">
+                Sign up
+              </Link>
+            </p>
           </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="input-field"
-              required
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loginMutation.isPending}
-            className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loginMutation.isPending ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-600">
-            Don't have an account?{' '}
-            <a href="/register" className="text-terracotta hover:text-terracotta-dark font-medium">
-              Sign up
-            </a>
-          </p>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
