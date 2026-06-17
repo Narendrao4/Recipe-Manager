@@ -137,7 +137,7 @@ const RecipeApiImporter = ({
           </div>
           <Button type="submit" variant="secondary" disabled={searchMutation.isPending || !searchTerm.trim()}>
             <Search className="h-4 w-4" />
-            {searchMutation.isPending ? 'Searching...' : 'Search API'}
+            {searchMutation.isPending ? 'Searching...' : 'Search'}
           </Button>
         </form>
 
