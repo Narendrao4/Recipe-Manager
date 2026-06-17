@@ -15,10 +15,25 @@
 }
 
 @layer base {
+  html {
+    background-color: var(--color-cream);
+    transition: background-color 180ms ease, color 180ms ease;
+  }
+
+  html.dark {
+    background-color: var(--color-forest);
+  }
+
   body {
     background-color: var(--color-cream);
     color: var(--color-forest);
     font-family: 'Inter', sans-serif;
+    transition: background-color 180ms ease, color 180ms ease;
+  }
+
+  .dark body {
+    background-color: var(--color-forest);
+    color: var(--color-cream);
   }
 }
 
@@ -44,20 +59,20 @@
 
   /* Buttons */
   .btn-primary {
-    @apply bg-terracotta text-white px-6 py-3 rounded-lg font-medium hover:bg-terracotta-dark transition-colors;
+    @apply bg-terracotta text-white px-6 py-3 rounded-lg font-medium hover:bg-terracotta-dark transition-colors shadow-sm;
   }
 
   .btn-secondary {
-    @apply bg-forest text-white px-6 py-3 rounded-lg font-medium hover:bg-forest-light transition-colors;
+    @apply bg-forest text-white px-6 py-3 rounded-lg font-medium hover:bg-forest-light transition-colors shadow-sm dark:bg-cream dark:text-forest dark:hover:bg-cream-dark;
   }
 
   .btn-outline {
-    @apply border-2 border-forest text-forest px-6 py-3 rounded-lg font-medium hover:bg-forest hover:text-white transition-colors;
+    @apply border-2 border-forest/30 bg-white text-forest px-6 py-3 rounded-lg font-medium hover:border-terracotta hover:bg-cream-light transition-colors dark:border-cream/25 dark:bg-forest-dark dark:text-cream dark:hover:bg-forest-light;
   }
 
   /* Input Fields */
   .input-field {
-    @apply w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-terracotta transition-colors;
+    @apply w-full px-4 py-3 border-2 border-gray-300 bg-white text-forest rounded-lg focus:outline-none focus:border-terracotta transition-colors dark:border-cream/20 dark:bg-forest-dark dark:text-cream dark:placeholder:text-cream/50;
   }
 
   /* Badge */
@@ -87,6 +102,18 @@
 
   .dark .recipe-card {
     background-color: var(--color-forest-dark);
+  }
+
+  .dark .badge-success {
+    @apply bg-green-900/40 text-green-100;
+  }
+
+  .dark .badge-warning {
+    @apply bg-yellow-900/40 text-yellow-100;
+  }
+
+  .dark .badge-danger {
+    @apply bg-red-900/40 text-red-100;
   }
 }
 

@@ -107,10 +107,17 @@ async function bootstrap(): Promise<void> {
   // Health check
   app.get('/api/health', (req, res) => {
     const currentDbUrl = process.env.DATABASE_URL || '';
+    const database =
+      currentDbUrl.startsWith('mongodb+srv://')
+        ? 'mongodb-atlas'
+        : currentDbUrl.startsWith('mongodb://localhost') || currentDbUrl.startsWith('mongodb://127.0.0.1')
+          ? 'mongodb-local'
+          : 'mongodb-memory';
+
     res.json({
       status: 'ok',
       timestamp: new Date().toISOString(),
-      database: currentDbUrl.startsWith('mongodb://localhost') || currentDbUrl.startsWith('mongodb://127.0.0.1') ? 'mongodb-local' : 'mongodb-memory',
+      database,
     });
   });
 

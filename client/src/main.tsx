@@ -5,6 +5,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { ToastProvider } from './components/ui/toast';
+import './store/themeStore';
 import './index.css';
 
 const queryClient = new QueryClient({
