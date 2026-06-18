@@ -31,7 +31,13 @@ const Login = () => {
       navigate('/dashboard');
     },
     onError: (error: any) => {
-      setError(error.response?.data?.error || 'Login failed');
+      const message = error.response?.data?.error || 'Login failed';
+      setError(message);
+      toast({
+        title: 'Sign in failed',
+        description: message,
+        tone: 'error',
+      });
     },
   });
 

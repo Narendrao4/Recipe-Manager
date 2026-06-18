@@ -1,14 +1,18 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Heart, SearchX } from 'lucide-react';
 import api from '../lib/api';
 import RecipeCard from '../components/RecipeCard';
+import { useToast } from '../components/ui/toast';
 
 const Favorites = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [cuisineFilter, setCuisineFilter] = useState('');
   const [difficultyFilter, setDifficultyFilter] = useState('');
+  const lastEmptyToast = useRef('');
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: recipes, isLoading } = useQuery({
     queryKey: ['recipes'],
@@ -25,6 +29,18 @@ const Favorites = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['recipes'] });
+      toast({
+        title: 'Favorite removed',
+        description: 'The recipe was removed from Favorites.',
+        tone: 'success',
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Favorite update failed',
+        description: 'Please try again.',
+        tone: 'error',
+      });
     },
   });
 
@@ -53,28 +69,44 @@ const Favorites = () => {
     ),
   ];
 
+  const hasActiveFilters = Boolean(searchTerm.trim() || cuisineFilter || difficultyFilter);
+
+  useEffect(() => {
+    if (!isLoading && favoriteRecipes.length === 0 && hasActiveFilters) {
+      const signature = `${searchTerm.trim()}|${cuisineFilter}|${difficultyFilter}`;
+      if (lastEmptyToast.current !== signature) {
+        lastEmptyToast.current = signature;
+        toast({
+          title: 'No favorites found',
+          description: 'No favorite recipes match those filters.',
+          tone: 'info',
+        });
+      }
+    }
+  }, [cuisineFilter, difficultyFilter, favoriteRecipes.length, hasActiveFilters, isLoading, searchTerm, toast]);
+
   const handleFavoriteToggle = (recipeId: string) => {
     favoriteMutation.mutate(recipeId);
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-4xl font-display font-bold text-forest dark:text-cream">Favorite Recipes</h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-1">
+          <p className="mt-1 text-gray-600 dark:text-gray-300">
             Your hand-picked collection for quick access.
           </p>
         </div>
-        <Link to="/recipes" className="btn-secondary">
+        <Link to="/recipes" className="btn-secondary text-center">
           Browse All Recipes
         </Link>
       </div>
 
-      <div className="bg-white dark:bg-forest-dark rounded-xl shadow-lg p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="rounded-xl bg-white p-6 shadow-lg dark:bg-forest-dark">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div>
-            <label className="block text-sm font-medium mb-2">Search Favorites</label>
+            <label className="mb-2 block text-sm font-medium">Search Favorites</label>
             <input
               type="text"
               placeholder="Search favorites..."
@@ -85,7 +117,7 @@ const Favorites = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Cuisine</label>
+            <label className="mb-2 block text-sm font-medium">Cuisine</label>
             <select
               value={cuisineFilter}
               onChange={(e) => setCuisineFilter(e.target.value)}
@@ -101,7 +133,7 @@ const Favorites = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Difficulty</label>
+            <label className="mb-2 block text-sm font-medium">Difficulty</label>
             <select
               value={difficultyFilter}
               onChange={(e) => setDifficultyFilter(e.target.value)}
@@ -117,26 +149,28 @@ const Favorites = () => {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center items-center py-20">
-          <div className="spinner"></div>
+        <div className="flex items-center justify-center py-20">
+          <div className="spinner" />
         </div>
       ) : favoriteRecipes.length > 0 ? (
         <>
           <div className="text-sm text-gray-600 dark:text-gray-300">
             Showing {favoriteRecipes.length} favorite {favoriteRecipes.length === 1 ? 'recipe' : 'recipes'}
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
             {favoriteRecipes.map((recipe: any) => (
               <RecipeCard key={recipe.id} recipe={recipe} onFavoriteToggle={handleFavoriteToggle} />
             ))}
           </div>
         </>
       ) : (
-        <div className="text-center py-20 bg-white dark:bg-forest-dark rounded-xl shadow-lg">
-          <div className="text-6xl mb-4">❤️</div>
-          <h3 className="text-2xl font-display font-semibold mb-2">No favorites yet</h3>
-          <p className="text-gray-600 dark:text-gray-300 mb-6">
-            {searchTerm || cuisineFilter || difficultyFilter
+        <div className="rounded-xl bg-white py-20 text-center shadow-lg dark:bg-forest-dark">
+          <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-cream text-terracotta dark:bg-forest-light dark:text-cream">
+            {hasActiveFilters ? <SearchX className="h-8 w-8" /> : <Heart className="h-8 w-8" />}
+          </div>
+          <h3 className="mb-2 font-display text-2xl font-semibold">No favorites yet</h3>
+          <p className="mb-6 text-gray-600 dark:text-gray-300">
+            {hasActiveFilters
               ? 'No favorites match your current filters.'
               : 'Tap the heart icon on any recipe to add it here.'}
           </p>

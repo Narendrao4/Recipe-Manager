@@ -11,7 +11,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<ButtonVariant, string> = {
   default: 'bg-terracotta text-white shadow-sm hover:bg-terracotta-dark',
-  secondary: 'bg-forest text-cream shadow-sm hover:bg-forest-light',
+  secondary: 'bg-forest text-cream shadow-sm hover:bg-forest-light dark:bg-cream dark:text-forest dark:hover:bg-cream-dark',
   outline: 'border border-forest/25 bg-white text-forest hover:border-terracotta hover:bg-cream-light dark:border-cream/20 dark:bg-forest-dark dark:text-cream dark:hover:bg-forest-light',
   ghost: 'text-forest hover:bg-cream-dark/60 dark:text-cream dark:hover:bg-forest-light',
   destructive: 'bg-red-600 text-white shadow-sm hover:bg-red-700',
@@ -31,6 +31,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       type={type}
       className={cn(
         'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
+        'dark:focus-visible:ring-offset-forest',
         variantClasses[variant],
         sizeClasses[size],
         className

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --color-forest: #1B3A2D;
@@ -22,6 +23,10 @@
 
   html.dark {
     background-color: var(--color-forest);
+  }
+
+  html.dark * {
+    scrollbar-color: var(--color-cream-dark) var(--color-forest-dark);
   }
 
   body {
@@ -131,6 +136,11 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+.dark .spinner {
+  border-color: rgba(245, 237, 214, 0.18);
+  border-left-color: #D47842;
 }
 
 @keyframes toast-in {

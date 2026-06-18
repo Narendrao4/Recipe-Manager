@@ -32,7 +32,13 @@ const Register = () => {
       navigate('/dashboard');
     },
     onError: (error: any) => {
-      setError(error.response?.data?.error || 'Registration failed');
+      const message = error.response?.data?.error || 'Registration failed';
+      setError(message);
+      toast({
+        title: 'Sign up failed',
+        description: message,
+        tone: 'error',
+      });
     },
   });
 

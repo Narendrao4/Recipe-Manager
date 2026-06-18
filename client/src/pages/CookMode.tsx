@@ -1,12 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  Info,
+  Mic,
+  MicOff,
+  Repeat2,
+  Timer,
+  Volume2,
+} from 'lucide-react';
 import api from '../lib/api';
+import { useToast } from '../components/ui/toast';
 
 const CookMode = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const [currentStep, setCurrentStep] = useState(0);
   const [servingMultiplier, setServingMultiplier] = useState(1);
@@ -30,10 +43,22 @@ const CookMode = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stats'] });
+      toast({
+        title: 'Cook logged',
+        description: 'Nice work. Your stats have been updated.',
+        tone: 'success',
+      });
+      navigate(`/recipes/${id}`);
+    },
+    onError: () => {
+      toast({
+        title: 'Cook log failed',
+        description: 'Unable to save this cook session.',
+        tone: 'error',
+      });
     },
   });
 
-  // Initialize Web Speech API
   useEffect(() => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
@@ -50,6 +75,70 @@ const CookMode = () => {
     }
   }, []);
 
+  const speakStep = (stepIndex = currentStep) => {
+    if (!recipe || !recipe.steps[stepIndex]) return;
+
+    const utterance = new SpeechSynthesisUtterance(recipe.steps[stepIndex].instruction);
+    utterance.rate = 0.9;
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const nextStep = () => {
+    if (recipe && currentStep < recipe.steps.length - 1) {
+      const nextIndex = currentStep + 1;
+      setCurrentStep(nextIndex);
+      speakStep(nextIndex);
+    }
+  };
+
+  const prevStep = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const startTimer = (stepIndex: number) => {
+    const step = recipe?.steps[stepIndex];
+    if (!step?.timerMinutes) {
+      toast({
+        title: 'No timer on this step',
+        description: 'This recipe step does not include a suggested timer.',
+        tone: 'info',
+      });
+      return;
+    }
+
+    const seconds = step.timerMinutes * 60;
+    setTimers((prev) => new Map(prev).set(stepIndex, seconds));
+    toast({
+      title: 'Timer started',
+      description: `${step.timerMinutes} minute timer started for this step.`,
+      tone: 'success',
+    });
+
+    const interval = setInterval(() => {
+      setTimers((prev) => {
+        const newTimers = new Map(prev);
+        const current = newTimers.get(stepIndex);
+        if (current && current > 0) {
+          newTimers.set(stepIndex, current - 1);
+        } else {
+          clearInterval(interval);
+          newTimers.delete(stepIndex);
+          new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSyAzvLUiTcIGWi77eefTRAMUKfj8LZjHAY4ktfyzHksBSR3x/DdkEAKFF606OuoVRQKRp/g8r5sIQUsgM7y1Ik3CBlou+3nn00QDFCn4/C2YxwGOJLX8sx5LAUkd8fw3ZBACh==')
+            .play()
+            .catch(() => undefined);
+          toast({
+            title: 'Timer complete',
+            description: 'Move to the next step when ready.',
+            tone: 'success',
+          });
+        }
+        return newTimers;
+      });
+    }, 1000);
+  };
+
   const handleVoiceCommand = (command: string) => {
     if (command.includes('next') || command.includes('forward')) {
       nextStep();
@@ -64,62 +153,31 @@ const CookMode = () => {
 
   const toggleListening = () => {
     if (!recognition) {
-      alert('Voice commands not supported in this browser. Try Chrome or Edge.');
+      toast({
+        title: 'Voice commands unavailable',
+        description: 'Try Chrome or Edge for speech recognition.',
+        tone: 'info',
+      });
       return;
     }
 
     if (isListening) {
       recognition.stop();
       setIsListening(false);
+      toast({
+        title: 'Voice commands stopped',
+        description: 'Cook mode is no longer listening.',
+        tone: 'info',
+      });
     } else {
       recognition.start();
       setIsListening(true);
-    }
-  };
-
-  const speakStep = () => {
-    if (!recipe || !recipe.steps[currentStep]) return;
-
-    const utterance = new SpeechSynthesisUtterance(recipe.steps[currentStep].instruction);
-    utterance.rate = 0.9;
-    window.speechSynthesis.speak(utterance);
-  };
-
-  const nextStep = () => {
-    if (recipe && currentStep < recipe.steps.length - 1) {
-      setCurrentStep(currentStep + 1);
-      speakStep();
-    }
-  };
-
-  const prevStep = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
-  const startTimer = (stepIndex: number) => {
-    const step = recipe?.steps[stepIndex];
-    if (!step?.timerMinutes) return;
-
-    const seconds = step.timerMinutes * 60;
-    setTimers(new Map(timers.set(stepIndex, seconds)));
-
-    const interval = setInterval(() => {
-      setTimers((prev) => {
-        const newTimers = new Map(prev);
-        const current = newTimers.get(stepIndex);
-        if (current && current > 0) {
-          newTimers.set(stepIndex, current - 1);
-        } else {
-          clearInterval(interval);
-          newTimers.delete(stepIndex);
-          // Play sound or notification
-          new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSyAzvLUiTcIGWi77eefTRAMUKfj8LZjHAY4ktfyzHksBSR3x/DdkEAKFF606OuoVRQKRp/g8r5sIQUsgM7y1Ik3CBlou+3nn00QDFCn4/C2YxwGOJLX8sx5LAUkd8fw3ZBACh==').play();
-        }
-        return newTimers;
+      toast({
+        title: 'Voice commands started',
+        description: 'Say next, back, repeat, or start timer.',
+        tone: 'success',
       });
-    }, 1000);
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -130,14 +188,12 @@ const CookMode = () => {
 
   const handleFinish = () => {
     cookMutation.mutate();
-    alert('Congratulations! Cook logged successfully! 🎉');
-    navigate(`/recipes/${id}`);
   };
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="spinner"></div>
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="spinner" />
       </div>
     );
   }
@@ -148,74 +204,78 @@ const CookMode = () => {
   const progress = ((currentStep + 1) / recipe.steps.length) * 100;
 
   return (
-    <div className="min-h-screen bg-forest text-cream p-8">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
+    <div className="min-h-screen bg-forest p-8 text-cream">
+      <div className="mx-auto max-w-4xl">
         <div className="mb-8">
-          <button onClick={() => navigate(`/recipes/${id}`)} className="text-cream-dark mb-4 hover:underline">
-            ← Exit Cook Mode
+          <button
+            onClick={() => navigate(`/recipes/${id}`)}
+            className="mb-4 inline-flex items-center gap-2 text-cream-dark hover:underline"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Exit Cook Mode
           </button>
-          <h1 className="text-4xl font-display font-bold mb-2">{recipe.title}</h1>
-          <div className="flex items-center gap-4 text-sm">
+          <h1 className="mb-2 text-4xl font-display font-bold">{recipe.title}</h1>
+          <div className="flex flex-col gap-4 text-sm sm:flex-row sm:items-center">
             <div>
               Servings:
               <input
                 type="number"
                 value={servingMultiplier * recipe.servings}
                 onChange={(e) => setServingMultiplier(parseInt(e.target.value) / recipe.servings)}
-                className="ml-2 w-16 bg-forest-light text-cream border-2 border-cream-dark rounded px-2 py-1"
+                className="ml-2 w-16 rounded border-2 border-cream-dark bg-forest-light px-2 py-1 text-cream"
                 min={recipe.servings}
               />
             </div>
             <button
               onClick={toggleListening}
-              className={`px-4 py-2 rounded-lg font-medium ${
-                isListening ? 'bg-red-500 animate-pulse' : 'bg-terracotta'
+              className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 font-medium ${
+                isListening ? 'animate-pulse bg-red-500' : 'bg-terracotta'
               }`}
             >
-              {isListening ? '🎙️ Listening...' : '🎙️ Voice Commands'}
+              {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              {isListening ? 'Listening...' : 'Voice Commands'}
             </button>
           </div>
         </div>
 
-        {/* Progress */}
         <div className="mb-8">
-          <div className="flex justify-between text-sm mb-2">
-            <span>Step {currentStep + 1} of {recipe.steps.length}</span>
+          <div className="mb-2 flex justify-between text-sm">
+            <span>
+              Step {currentStep + 1} of {recipe.steps.length}
+            </span>
             <span>{Math.round(progress)}% Complete</span>
           </div>
-          <div className="w-full bg-forest-light rounded-full h-3">
+          <div className="h-3 w-full rounded-full bg-forest-light">
             <div
-              className="bg-terracotta h-3 rounded-full transition-all duration-300"
+              className="h-3 rounded-full bg-terracotta transition-all duration-300"
               style={{ width: `${progress}%` }}
             />
           </div>
         </div>
 
-        {/* Current Step */}
-        <div className="bg-white text-forest rounded-2xl shadow-2xl p-12 mb-8">
-          <div className="text-6xl font-bold text-terracotta mb-6">
+        <div className="mb-8 rounded-2xl bg-white p-12 text-forest shadow-2xl dark:bg-forest-dark dark:text-cream">
+          <div className="mb-6 text-6xl font-bold text-terracotta">
             {currentStepData.stepNumber}.
           </div>
-          <p className="text-3xl leading-relaxed mb-8">{currentStepData.instruction}</p>
+          <p className="mb-8 text-3xl leading-relaxed">{currentStepData.instruction}</p>
 
-          {/* Timer */}
           {currentStepData.timerMinutes && (
-            <div className="bg-cream rounded-xl p-6 mb-8">
-              <div className="flex justify-between items-center">
+            <div className="mb-8 rounded-xl bg-cream p-6 dark:bg-forest-light">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <div className="text-sm text-gray-600">Suggested Timer</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-300">Suggested Timer</div>
                   <div className="text-2xl font-bold">{currentStepData.timerMinutes} minutes</div>
                 </div>
                 {timers.has(currentStep) ? (
-                  <div className="text-3xl font-mono font-bold text-terracotta">
+                  <div className="font-mono text-3xl font-bold text-terracotta">
                     {formatTime(timers.get(currentStep)!)}
                   </div>
                 ) : (
                   <button
                     onClick={() => startTimer(currentStep)}
-                    className="px-6 py-3 bg-terracotta text-white rounded-lg font-semibold hover:bg-terracotta-dark"
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-terracotta px-6 py-3 font-semibold text-white hover:bg-terracotta-dark"
                   >
+                    <Timer className="h-4 w-4" />
                     Start Timer
                   </button>
                 )}
@@ -223,50 +283,62 @@ const CookMode = () => {
             </div>
           )}
 
-          {/* Ingredients for this step (if scaling) */}
           {servingMultiplier !== 1 && (
-            <div className="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-6">
-              <div className="text-sm font-semibold text-yellow-800 mb-2">
-                📏 Scaled for {servingMultiplier * recipe.servings} servings:
+            <div className="rounded-xl border-2 border-yellow-300 bg-yellow-50 p-6 dark:border-yellow-400/30 dark:bg-yellow-950/40">
+              <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-yellow-800 dark:text-yellow-100">
+                <Info className="h-4 w-4" />
+                Scaled for {servingMultiplier * recipe.servings} servings:
               </div>
-              <div className="text-sm text-yellow-700">
+              <div className="text-sm text-yellow-700 dark:text-yellow-100">
                 All ingredient quantities have been adjusted accordingly.
               </div>
             </div>
           )}
         </div>
 
-        {/* Navigation */}
-        <div className="flex gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row">
           <button
             onClick={prevStep}
             disabled={currentStep === 0}
-            className="flex-1 btn-secondary disabled:opacity-30 text-lg py-4"
+            className="btn-secondary flex flex-1 items-center justify-center gap-2 py-4 text-lg disabled:opacity-30"
           >
-            ← Previous
+            <ArrowLeft className="h-5 w-5" />
+            Previous
           </button>
-          <button onClick={speakStep} className="px-8 py-4 bg-purple-500 text-white rounded-lg font-semibold hover:bg-purple-600">
-            🔊 Repeat
+          <button onClick={() => speakStep()} className="inline-flex items-center justify-center gap-2 rounded-lg bg-purple-500 px-8 py-4 font-semibold text-white hover:bg-purple-600">
+            <Volume2 className="h-5 w-5" />
+            Repeat
           </button>
           {currentStep < recipe.steps.length - 1 ? (
-            <button onClick={nextStep} className="flex-1 btn-primary text-lg py-4">
-              Next →
+            <button onClick={nextStep} className="btn-primary flex flex-1 items-center justify-center gap-2 py-4 text-lg">
+              Next
+              <ArrowRight className="h-5 w-5" />
             </button>
           ) : (
-            <button onClick={handleFinish} className="flex-1 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 text-lg py-4">
-              ✅ Finish & Log Cook
+            <button
+              onClick={handleFinish}
+              disabled={cookMutation.isPending}
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-500 py-4 text-lg font-semibold text-white hover:bg-green-600 disabled:opacity-50"
+            >
+              <CheckCircle2 className="h-5 w-5" />
+              {cookMutation.isPending ? 'Logging Cook...' : 'Finish & Log Cook'}
             </button>
           )}
         </div>
 
-        {/* Voice Commands Help */}
-        <div className="mt-8 bg-forest-light rounded-xl p-6 text-sm">
-          <div className="font-semibold mb-2">🎙️ Voice Commands:</div>
-          <div className="grid grid-cols-2 gap-2 text-cream-dark">
-            <div>• Say "next" or "forward"</div>
-            <div>• Say "back" or "previous"</div>
-            <div>• Say "repeat" or "again"</div>
-            <div>• Say "start timer"</div>
+        <div className="mt-8 rounded-xl bg-forest-light p-6 text-sm">
+          <div className="mb-2 flex items-center gap-2 font-semibold">
+            <Mic className="h-4 w-4" />
+            Voice Commands
+          </div>
+          <div className="grid grid-cols-1 gap-2 text-cream-dark sm:grid-cols-2">
+            <div>Say "next" or "forward"</div>
+            <div>Say "back" or "previous"</div>
+            <div className="inline-flex items-center gap-2">
+              <Repeat2 className="h-4 w-4" />
+              Say "repeat" or "again"
+            </div>
+            <div>Say "start timer"</div>
           </div>
         </div>
       </div>

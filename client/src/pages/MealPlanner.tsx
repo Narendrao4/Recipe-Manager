@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { format, addDays, startOfWeek } from 'date-fns';
+import { CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Clock3, GripVertical } from 'lucide-react';
 import api from '../lib/api';
+import { useToast } from '../components/ui/toast';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'];
@@ -20,13 +22,19 @@ const RecipeCard = ({ recipe }: any) => {
   return (
     <div
       ref={drag}
-      className={`bg-white dark:bg-forest-dark p-3 rounded-lg shadow cursor-move hover:shadow-lg transition-shadow ${
+      className={`cursor-move rounded-lg bg-white p-3 shadow transition-shadow hover:shadow-lg dark:bg-forest-dark ${
         isDragging ? 'opacity-50' : ''
       }`}
     >
-      <div className="font-semibold text-sm">{recipe.title}</div>
-      <div className="text-xs text-gray-500 mt-1">
-        ⏱️ {recipe.prepTime + recipe.cookTime} min
+      <div className="flex items-start gap-2">
+        <GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+        <div>
+          <div className="text-sm font-semibold">{recipe.title}</div>
+          <div className="mt-1 inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-300">
+            <Clock3 className="h-3 w-3" />
+            {recipe.prepTime + recipe.cookTime} min
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -50,16 +58,18 @@ const MealSlot = ({ date, mealType, recipes, onDrop }: any) => {
   return (
     <div
       ref={drop}
-      className={`min-h-[80px] p-2 border-2 border-dashed rounded-lg transition-colors ${
-        isOver ? 'border-terracotta bg-cream-light' : 'border-gray-300 dark:border-gray-600'
+      className={`min-h-[80px] rounded-lg border-2 border-dashed p-2 transition-colors ${
+        isOver
+          ? 'border-terracotta bg-cream-light dark:bg-forest-light'
+          : 'border-gray-300 dark:border-gray-600'
       }`}
     >
       {mealRecipe ? (
-        <div className="bg-terracotta text-white p-2 rounded text-sm">
+        <div className="rounded bg-terracotta p-2 text-sm text-white">
           {mealRecipe.recipe.title}
         </div>
       ) : (
-        <div className="text-gray-400 text-xs text-center py-4">
+        <div className="py-4 text-center text-xs text-gray-400 dark:text-gray-300">
           Drop recipe here
         </div>
       )}
@@ -69,6 +79,7 @@ const MealSlot = ({ date, mealType, recipes, onDrop }: any) => {
 
 const MealPlanner = () => {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date()));
 
   const { data: mealPlans } = useQuery({
@@ -101,6 +112,18 @@ const MealPlanner = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mealPlans'] });
+      toast({
+        title: 'Meal plan created',
+        description: 'A new weekly plan was created.',
+        tone: 'success',
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Plan creation failed',
+        description: 'Unable to create a meal plan right now.',
+        tone: 'error',
+      });
     },
   });
 
@@ -113,24 +136,49 @@ const MealPlanner = () => {
       });
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['mealPlans'] });
+      toast({
+        title: 'Recipe planned',
+        description: `Added to ${variables.mealType} on ${format(variables.date, 'MMM d')}.`,
+        tone: 'success',
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Planning failed',
+        description: 'Unable to add that recipe to the meal plan.',
+        tone: 'error',
+      });
     },
   });
 
   const handleDrop = async (recipe: any, date: Date, mealType: string) => {
-    let mealPlanId = currentMealPlan?.id;
+    try {
+      let mealPlanId = currentMealPlan?.id;
 
-    if (!mealPlanId) {
-      const newPlan = await createMealPlanMutation.mutateAsync(currentWeekStart);
-      mealPlanId = newPlan.id;
+      if (!mealPlanId) {
+        const newPlan = await createMealPlanMutation.mutateAsync(currentWeekStart);
+        mealPlanId = newPlan.id;
+      }
+
+      addRecipeToMealPlanMutation.mutate({
+        mealPlanId,
+        recipeId: recipe.id,
+        date,
+        mealType,
+      });
+    } catch {
+      // Mutation callbacks surface the failure toast.
     }
+  };
 
-    addRecipeToMealPlanMutation.mutate({
-      mealPlanId,
-      recipeId: recipe.id,
-      date,
-      mealType,
+  const goToWeek = (date: Date, label: string) => {
+    setCurrentWeekStart(date);
+    toast({
+      title: 'Week changed',
+      description: label,
+      tone: 'info',
     });
   };
 
@@ -139,51 +187,52 @@ const MealPlanner = () => {
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-4xl font-display font-bold text-forest dark:text-cream">
-            📅 Meal Planner
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <h1 className="flex items-center gap-3 text-4xl font-display font-bold text-forest dark:text-cream">
+            <CalendarDays className="h-9 w-9 text-terracotta" />
+            Meal Planner
           </h1>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
-              onClick={() => setCurrentWeekStart(addDays(currentWeekStart, -7))}
-              className="btn-outline"
+              onClick={() => goToWeek(addDays(currentWeekStart, -7), 'Showing the previous week.')}
+              className="btn-outline inline-flex items-center gap-2"
             >
-              ← Previous Week
+              <ChevronLeft className="h-4 w-4" />
+              Previous Week
             </button>
             <button
-              onClick={() => setCurrentWeekStart(startOfWeek(new Date()))}
+              onClick={() => goToWeek(startOfWeek(new Date()), 'Showing this week.')}
               className="btn-secondary"
             >
               This Week
             </button>
             <button
-              onClick={() => setCurrentWeekStart(addDays(currentWeekStart, 7))}
-              className="btn-outline"
+              onClick={() => goToWeek(addDays(currentWeekStart, 7), 'Showing the next week.')}
+              className="btn-outline inline-flex items-center gap-2"
             >
-              Next Week →
+              Next Week
+              <ChevronRight className="h-4 w-4" />
             </button>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-forest-dark rounded-xl shadow-lg p-6">
-          <h3 className="text-xl font-semibold mb-4">
+        <div className="overflow-x-auto rounded-xl bg-white p-6 shadow-lg dark:bg-forest-dark">
+          <h3 className="mb-4 text-xl font-semibold">
             Week of {format(currentWeekStart, 'MMMM d, yyyy')}
           </h3>
 
-          <div className="grid grid-cols-8 gap-2">
-            {/* Header */}
-            <div className="font-semibold"></div>
+          <div className="grid min-w-[920px] grid-cols-8 gap-2">
+            <div className="font-semibold" />
             {weekDates.map((date, i) => (
-              <div key={i} className="font-semibold text-center">
+              <div key={i} className="text-center font-semibold">
                 <div>{DAYS[i]}</div>
-                <div className="text-sm text-gray-500">{format(date, 'MMM d')}</div>
+                <div className="text-sm text-gray-500 dark:text-gray-300">{format(date, 'MMM d')}</div>
               </div>
             ))}
 
-            {/* Meal Rows */}
             {MEAL_TYPES.map((mealType) => (
-              <>
-                <div key={`label-${mealType}`} className="font-medium capitalize flex items-center">
+              <Fragment key={mealType}>
+                <div className="flex items-center font-medium capitalize">
                   {mealType}
                 </div>
                 {weekDates.map((date, i) => (
@@ -196,7 +245,7 @@ const MealPlanner = () => {
                     onDrop={handleDrop}
                   />
                 ))}
-              </>
+              </Fragment>
             ))}
           </div>
 
@@ -206,18 +255,25 @@ const MealPlanner = () => {
                 href={`/api/meal-plans/${currentMealPlan.id}/grocery-list`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn-primary"
+                className="btn-primary inline-flex items-center gap-2"
+                onClick={() =>
+                  toast({
+                    title: 'Grocery list opened',
+                    description: 'Your list is opening in a new tab.',
+                    tone: 'info',
+                  })
+                }
               >
-                📝 Generate Grocery List
+                <ClipboardList className="h-4 w-4" />
+                Generate Grocery List
               </a>
             </div>
           )}
         </div>
 
-        {/* Recipe Selector */}
-        <div className="bg-white dark:bg-forest-dark rounded-xl shadow-lg p-6">
-          <h2 className="text-2xl font-display font-semibold mb-4">Available Recipes (Drag to plan)</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="rounded-xl bg-white p-6 shadow-lg dark:bg-forest-dark">
+          <h2 className="mb-4 font-display text-2xl font-semibold">Available Recipes (Drag to plan)</h2>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             {recipes?.slice(0, 12).map((recipe: any) => (
               <RecipeCard key={recipe.id} recipe={recipe} />
             ))}

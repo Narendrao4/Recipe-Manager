@@ -3,11 +3,13 @@ import { BarChart3, BookOpen, CalendarDays, Heart, Home, LogOut, Moon, Package, 
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
 import Button from './ui/button';
+import { useToast } from './ui/toast';
 import { cn } from '../lib/utils';
 
 const Layout = () => {
   const { user, logout } = useAuthStore();
   const { isDark, toggle } = useThemeStore();
+  const { toast } = useToast();
   const location = useLocation();
 
   const navLinks = [
@@ -19,6 +21,25 @@ const Layout = () => {
     { path: '/pantry', label: 'Pantry', icon: Package },
     { path: '/stats', label: 'Stats', icon: BarChart3 },
   ];
+
+  const handleLogout = () => {
+    logout();
+    toast({
+      title: 'Logged out',
+      description: 'You have been signed out successfully.',
+      tone: 'success',
+    });
+  };
+
+  const handleThemeToggle = () => {
+    const nextDark = !isDark;
+    toggle();
+    toast({
+      title: nextDark ? 'Dark mode enabled' : 'Light mode enabled',
+      description: nextDark ? 'The application has switched to dark colors.' : 'The application has switched to light colors.',
+      tone: 'info',
+    });
+  };
 
   return (
     <div className="min-h-screen bg-cream text-forest dark:bg-forest dark:text-cream">
@@ -37,7 +58,7 @@ const Layout = () => {
               </Link>
 
               <div className="flex items-center gap-2 lg:hidden">
-                <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
+                <Button variant="ghost" size="icon" onClick={handleThemeToggle} aria-label="Toggle theme">
                   {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
                 </Button>
               </div>
@@ -67,13 +88,13 @@ const Layout = () => {
             </div>
 
             <div className="hidden items-center gap-3 lg:flex">
-              <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
+              <Button variant="ghost" size="icon" onClick={handleThemeToggle} aria-label="Toggle theme">
                 {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
               </Button>
               <div className="rounded-lg border border-forest/10 bg-white/60 px-3 py-2 text-sm dark:border-cream/10 dark:bg-cream/5">
                 <div className="font-semibold">{user?.name}</div>
               </div>
-              <Button variant="outline" size="sm" onClick={logout}>
+              <Button variant="outline" size="sm" onClick={handleLogout}>
                 <LogOut className="h-4 w-4" />
                 Logout
               </Button>

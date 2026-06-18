@@ -10,8 +10,8 @@ interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 const variants: Record<BadgeVariant, string> = {
   default: 'bg-terracotta text-white',
   secondary: 'bg-forest/10 text-forest dark:bg-cream/10 dark:text-cream',
-  success: 'bg-emerald-100 text-emerald-800',
-  warning: 'bg-amber-100 text-amber-800',
+  success: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-100',
+  warning: 'bg-amber-100 text-amber-800 dark:bg-amber-400/15 dark:text-amber-100',
 };
 
 const Badge = ({ className, variant = 'default', ...props }: BadgeProps) => (

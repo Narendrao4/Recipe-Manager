@@ -69,6 +69,22 @@ const RecipeApiImporter = ({
       });
       return data as ExternalRecipeDraft[];
     },
+    onSuccess: (results, query) => {
+      if (results.length === 0) {
+        toast({
+          title: 'No recipes found',
+          description: `No API recipes matched "${query}".`,
+          tone: 'info',
+        });
+      }
+    },
+    onError: () => {
+      toast({
+        title: 'Search failed',
+        description: 'Unable to search the recipe API right now.',
+        tone: 'error',
+      });
+    },
   });
 
   const importMutation = useMutation({
@@ -86,6 +102,13 @@ const RecipeApiImporter = ({
         tone: 'success',
       });
     },
+    onError: () => {
+      toast({
+        title: 'Import failed',
+        description: 'Please try importing this recipe again.',
+        tone: 'error',
+      });
+    },
     onSettled: () => {
       setActiveImportId('');
     },
@@ -95,29 +118,36 @@ const RecipeApiImporter = ({
     event.preventDefault();
 
     const query = searchTerm.trim();
-    if (query) {
-      searchMutation.mutate(query);
+    if (!query) {
+      toast({
+        title: 'Search needs a term',
+        description: 'Enter a recipe name or ingredient first.',
+        tone: 'info',
+      });
+      return;
     }
+
+    searchMutation.mutate(query);
   };
 
   const hasResults = Boolean(searchMutation.data && searchMutation.data.length > 0);
 
   return (
-    <Card className={cn('relative overflow-hidden border-forest/10 bg-cream-light/95 shadow-xl', className)}>
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,rgba(196,98,45,0.16),transparent_34%),radial-gradient(circle_at_92%_8%,rgba(27,58,45,0.15),transparent_26%)]" />
+    <Card className={cn('relative overflow-hidden border-forest/10 bg-cream-light/95 shadow-xl dark:border-cream/10 dark:bg-forest-dark/95', className)}>
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,rgba(196,98,45,0.16),transparent_34%),radial-gradient(circle_at_92%_8%,rgba(27,58,45,0.15),transparent_26%)] dark:bg-[linear-gradient(115deg,rgba(196,98,45,0.18),transparent_34%),radial-gradient(circle_at_92%_8%,rgba(245,237,214,0.10),transparent_26%)]" />
       <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-terracotta/50 to-transparent" />
 
       <CardHeader className="relative pb-4">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-terracotta/20 bg-white/70 px-3 py-1 text-xs font-semibold text-terracotta shadow-sm">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-terracotta/20 bg-white/70 px-3 py-1 text-xs font-semibold text-terracotta shadow-sm dark:bg-forest/80 dark:text-terracotta-light">
               <Sparkles className="h-3.5 w-3.5" />
               Free Recipe API
             </div>
             <CardTitle className="text-3xl text-forest dark:text-cream">{title}</CardTitle>
             {description && <CardDescription className="mt-2 max-w-2xl">{description}</CardDescription>}
           </div>
-          <Badge variant="secondary" className="w-fit bg-white/75">
+          <Badge variant="secondary" className="w-fit bg-white/75 dark:bg-cream/10">
             TheMealDB
           </Badge>
         </div>
@@ -131,7 +161,7 @@ const RecipeApiImporter = ({
               type="text"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              className="bg-white/90 pl-10"
+              className="bg-white/90 pl-10 dark:bg-forest/90"
               placeholder="Search Arrabiata, chicken, curry..."
             />
           </div>
@@ -142,19 +172,19 @@ const RecipeApiImporter = ({
         </form>
 
         {searchMutation.isError && (
-          <p className="rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <p className="rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-400/30 dark:bg-red-950/40 dark:text-red-100">
             Unable to search the recipe API right now.
           </p>
         )}
 
         {importMutation.isError && (
-          <p className="rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <p className="rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-400/30 dark:bg-red-950/40 dark:text-red-100">
             Import failed. Please try again.
           </p>
         )}
 
         {searchMutation.isSuccess && !hasResults && (
-          <p className="rounded-lg border border-forest/10 bg-white/70 px-4 py-3 text-sm text-gray-700">
+          <p className="rounded-lg border border-forest/10 bg-white/70 px-4 py-3 text-sm text-gray-700 dark:border-cream/10 dark:bg-forest/80 dark:text-gray-200">
             No API recipes found for that search.
           </p>
         )}
@@ -171,7 +201,7 @@ const RecipeApiImporter = ({
                   className="group overflow-hidden rounded-xl border border-forest/10 bg-white/90 shadow-sm transition-all hover:-translate-y-0.5 hover:border-terracotta/35 hover:shadow-xl dark:border-cream/10 dark:bg-forest-dark/90"
                 >
                   <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr]">
-                    <div className="relative h-44 overflow-hidden bg-gray-200 sm:h-full">
+                    <div className="relative h-44 overflow-hidden bg-gray-200 dark:bg-forest-light sm:h-full">
                       {externalRecipe.photoUrl ? (
                         <img
                           src={externalRecipe.photoUrl}
@@ -222,7 +252,14 @@ const RecipeApiImporter = ({
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => onUseRecipe(externalRecipe)}
+                            onClick={() => {
+                              onUseRecipe(externalRecipe);
+                              toast({
+                                title: 'Recipe loaded',
+                                description: 'You can review and edit it before saving.',
+                                tone: 'success',
+                              });
+                            }}
                             className="flex-1"
                           >
                             {reviewButtonLabel}
