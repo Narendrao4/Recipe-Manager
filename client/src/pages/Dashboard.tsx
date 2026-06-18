@@ -82,7 +82,7 @@ const Dashboard = () => {
             Recipe Dashboard
           </h1>
           <p className="mt-2 text-gray-600 dark:text-gray-300">
-            Search the free recipe API, import meals, and keep your collection moving.
+            Search the free recipe , import meals, and keep your collection moving.
           </p>
         </div>
         <Link to="/recipes/new" className="btn-primary text-center">
