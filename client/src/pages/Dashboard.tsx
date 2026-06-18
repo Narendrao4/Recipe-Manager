@@ -91,7 +91,7 @@ const Dashboard = () => {
       </div>
 
       <RecipeApiImporter
-        title="Get recipes from the free API"
+        title=" Search recipes To import"
         description="Search TheMealDB and import a recipe directly into My Recipes."
         onImported={handleImportedRecipe}
         importButtonLabel="Import to My Recipes"
