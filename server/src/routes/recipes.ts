@@ -40,6 +40,7 @@ const upload = multer({
 
 const MEALDB_API_KEY = process.env.THEMEALDB_API_KEY || '1';
 const MEALDB_BASE_URL = `https://www.themealdb.com/api/json/v1/${MEALDB_API_KEY}`;
+const YOUTUBE_SEARCH_URL = 'https://www.googleapis.com/youtube/v3/search';
 
 type TheMealDbMeal = {
   idMeal: string;
@@ -85,6 +86,35 @@ type RecipeDraft = {
   ingredients: ImportedIngredient[];
   steps: ImportedStep[];
   tags: string[];
+};
+
+type YouTubeSearchItem = {
+  id?: {
+    kind?: string;
+    videoId?: string;
+  };
+  snippet?: {
+    title?: string;
+    description?: string;
+    channelTitle?: string;
+    publishedAt?: string;
+    thumbnails?: Record<string, { url?: string; width?: number; height?: number }>;
+  };
+};
+
+type YouTubeSearchResponse = {
+  items?: YouTubeSearchItem[];
+};
+
+type YouTubeRecipeVideo = {
+  videoId: string;
+  title: string;
+  description: string;
+  channelTitle: string;
+  publishedAt: string;
+  thumbnailUrl: string;
+  watchUrl: string;
+  embedUrl: string;
 };
 
 function cleanText(value?: string | null): string {
@@ -210,6 +240,44 @@ function uniqueTagNames(values: string[]): string[] {
   return Array.from(new Set(values.map(cleanText).filter(Boolean)));
 }
 
+function clampNumber(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
+
+  return Math.min(Math.max(value, min), max);
+}
+
+function getBestYouTubeThumbnail(
+  thumbnails?: Record<string, { url?: string; width?: number; height?: number }>
+): string {
+  return (
+    thumbnails?.high?.url ||
+    thumbnails?.medium?.url ||
+    thumbnails?.default?.url ||
+    ''
+  );
+}
+
+function mapYouTubeSearchItem(item: YouTubeSearchItem): YouTubeRecipeVideo | null {
+  const videoId = cleanText(item.id?.videoId);
+
+  if (item.id?.kind !== 'youtube#video' || !videoId) {
+    return null;
+  }
+
+  return {
+    videoId,
+    title: cleanText(item.snippet?.title),
+    description: cleanText(item.snippet?.description),
+    channelTitle: cleanText(item.snippet?.channelTitle),
+    publishedAt: cleanText(item.snippet?.publishedAt),
+    thumbnailUrl: getBestYouTubeThumbnail(item.snippet?.thumbnails),
+    watchUrl: `https://www.youtube.com/watch?v=${videoId}`,
+    embedUrl: `https://www.youtube.com/embed/${videoId}`,
+  };
+}
+
 function mapMealToRecipeDraft(meal: TheMealDbMeal): RecipeDraft {
   const title = cleanText(meal.strMeal);
   const category = cleanText(meal.strCategory);
@@ -262,6 +330,52 @@ async function fetchMealDb(pathname: string, params: Record<string, string>): Pr
     }
 
     return (await response.json()) as TheMealDbResponse;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function fetchYouTubeRecipeVideos(query: string): Promise<YouTubeRecipeVideo[]> {
+  const apiKey = cleanText(process.env.YOUTUBE_API_KEY);
+
+  if (!apiKey) {
+    return [];
+  }
+
+  const maxResults = clampNumber(parseInt(process.env.YOUTUBE_MAX_RESULTS || '6', 10), 1, 12);
+  const url = new URL(YOUTUBE_SEARCH_URL);
+  url.searchParams.set('part', 'snippet');
+  url.searchParams.set('q', `how to make ${query}`);
+  url.searchParams.set('type', 'video');
+  url.searchParams.set('maxResults', maxResults.toString());
+  url.searchParams.set('order', 'relevance');
+  url.searchParams.set('safeSearch', 'moderate');
+  url.searchParams.set('videoEmbeddable', 'true');
+  url.searchParams.set('key', apiKey);
+
+  if (process.env.YOUTUBE_REGION_CODE) {
+    url.searchParams.set('regionCode', process.env.YOUTUBE_REGION_CODE);
+  }
+
+  if (process.env.YOUTUBE_RELEVANCE_LANGUAGE) {
+    url.searchParams.set('relevanceLanguage', process.env.YOUTUBE_RELEVANCE_LANGUAGE);
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+
+    if (!response.ok) {
+      throw new Error(`YouTube Data API returned ${response.status}`);
+    }
+
+    const data = (await response.json()) as YouTubeSearchResponse;
+
+    return (data.items || [])
+      .map(mapYouTubeSearchItem)
+      .filter((video): video is YouTubeRecipeVideo => Boolean(video));
   } finally {
     clearTimeout(timeout);
   }
@@ -355,6 +469,25 @@ router.get('/external/themealdb/search', authenticate, async (req: AuthRequest, 
   } catch (error) {
     console.error('TheMealDB search error:', error);
     res.status(502).json({ error: 'Failed to search TheMealDB recipes' });
+  }
+});
+
+// Search YouTube Data API for embeddable cooking videos matching a recipe query.
+router.get('/external/youtube/search', authenticate, async (req: AuthRequest, res) => {
+  try {
+    const query = cleanText(req.query.q as string);
+
+    if (!query) {
+      return res.status(400).json({ error: 'Search query required' });
+    }
+
+    const configured = Boolean(cleanText(process.env.YOUTUBE_API_KEY));
+    const videos = configured ? await fetchYouTubeRecipeVideos(query) : [];
+
+    res.json({ configured, videos });
+  } catch (error) {
+    console.error('YouTube search error:', error);
+    res.status(502).json({ error: 'Failed to search YouTube recipe videos' });
   }
 });
 
